@@ -6,49 +6,72 @@ function HistoryPage() {
   const navigate = useNavigate();
   const [txns, setTxns] = useState([]);
   const [filter, setFilter] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchHistory = async () => {
-      const url = filter ? `/transaction/history?type=${filter}` : '/transaction/history';
-      const res = await axiosInstance.get(url);
-      setTxns(res.data);
+      setLoading(true);
+      try {
+        const url = filter ? `/transaction/history?type=${filter}` : '/transaction/history';
+        const res = await axiosInstance.get(url);
+        setTxns(res.data);
+      } catch { setTxns([]); }
+      finally { setLoading(false); }
     };
     fetchHistory();
   }, [filter]);
 
+  const tabs = [{ value: '', label: 'All' }, { value: 'SENT', label: 'Sent' }, { value: 'RECEIVED', label: 'Received' }];
+
   return (
-    <div style={{maxWidth:'600px',margin:'40px auto',padding:'24px'}}>
-      <h2>Transaction History</h2>
-      <div style={{marginBottom:'12px'}}>
-        {['','SENT','RECEIVED'].map(f => (
-          <button key={f} onClick={() => setFilter(f)}
-            style={{marginRight:'8px',
-              fontWeight: filter===f ? 'bold' : 'normal'}}>
-            {f || 'All'}
-          </button>
-        ))}
-      </div>
-      <table style={{width:'100%',borderCollapse:'collapse'}}>
-        <thead><tr>
-          {['Type','Amount','With','Status','Date'].map(h =>
-            <th key={h} style={{textAlign:'left',padding:'8px',
-              borderBottom:'1px solid #eee'}}>{h}</th>)}
-        </tr></thead>
-        <tbody>
-          {txns.map((t) => (
-            <tr key={t.referenceId}>
-              <td style={{padding:'8px',color: t.type==='SENT' ? 'red':'green'}}>{t.type}</td>
-              <td style={{padding:'8px'}}>₹{t.amount}</td>
-              <td style={{padding:'8px'}}>{t.counterpartyName}</td>
-              <td style={{padding:'8px',color:'green'}}>{t.status}</td>
-              <td style={{padding:'8px'}}>{t.timestamp?.substring(0,10)}</td>
-            </tr>
+    <div className="history-wrapper">
+      <div className="history-inner">
+
+        <div className="topbar" style={{ marginBottom: '4px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <button className="back-btn" onClick={() => navigate('/dashboard')}>←</button>
+            <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '22px', fontWeight: 700, letterSpacing: '-0.3px' }}>Transactions</h1>
+          </div>
+        </div>
+
+        <div className="filter-tabs">
+          {tabs.map(tab => (
+            <button key={tab.value} className={`filter-tab ${filter === tab.value ? 'active' : ''}`} onClick={() => setFilter(tab.value)}>
+              {tab.label}
+            </button>
           ))}
-        </tbody>
-      </table>
-      <button onClick={() => navigate('/dashboard')}
-        style={{marginTop:'16px'}}>Back to Dashboard</button>
+        </div>
+
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Loading...</div>
+        ) : txns.length === 0 ? (
+          <div className="empty-state">
+            <div className="empty-state-icon">📭</div>
+            <div className="empty-state-text">No transactions found</div>
+          </div>
+        ) : (
+          <div className="txn-list">
+            {txns.map((t) => {
+              const isSent = t.type === 'SENT';
+              return (
+                <div className="txn-item" key={t.referenceId}>
+                  <div className={`txn-icon ${isSent ? 'sent' : 'received'}`}>{isSent ? '↑' : '↓'}</div>
+                  <div className="txn-info">
+                    <div className="txn-name">{t.counterpartyName || 'Unknown'}</div>
+                    <div className="txn-date">{t.timestamp?.substring(0, 10) || '—'}</div>
+                  </div>
+                  <div className="txn-right">
+                    <div className={`txn-amount ${isSent ? 'sent' : 'received'}`}>{isSent ? '-' : '+'}₹{Number(t.amount).toLocaleString('en-IN')}</div>
+                    <div className="txn-status">{t.status}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
+
 export default HistoryPage;

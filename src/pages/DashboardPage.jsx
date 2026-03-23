@@ -5,19 +5,49 @@ import axiosInstance from '../api/axiosInstance';
 function DashboardPage() {
   const navigate = useNavigate();
   const [balance, setBalance] = useState(null);
-  const [profile, setProfile] = useState({});
+  // Pre-populate from localStorage so data shows instantly after login
+  const [profile, setProfile] = useState({
+    name: localStorage.getItem('name') || '',
+    accountNumber: localStorage.getItem('accountNumber') || '',
+  });
 
   useEffect(() => {
     const fetchData = async () => {
       try {
+        const token = localStorage.getItem('token');
+        console.log('Token:', token);
+        if (!token) { navigate('/login'); return; }
+
         const b = await axiosInstance.get('/account/balance');
+        console.log('Balance response (full):', b.data);
+        // Handle both { balance: X } and { data: { balance: X } }
+        const balanceValue = b.data?.balance ?? b.data?.data?.balance ?? b.data;
+        setBalance(balanceValue);
+
         const p = await axiosInstance.get('/account/profile');
-        setBalance(b.data.balance);
-        setProfile(p.data);
-      } catch {}
+        console.log('Profile response (full):', p.data);
+        // Normalize field names: support both camelCase and snake_case
+        const profileData = p.data?.data ?? p.data;
+        setProfile({
+          name: profileData.name || profileData.fullName || localStorage.getItem('name') || '',
+          email: profileData.email || '',
+          accountNumber:
+            profileData.accountNumber ||
+            profileData.account_number ||
+            profileData.accNo ||
+            localStorage.getItem('accountNumber') ||
+            '',
+        });
+      } catch (err) {
+        console.error('Dashboard API Error:', err.response?.status, err.response?.data);
+        if (err.response?.status === 401 || err.response?.status === 403) {
+          localStorage.clear();
+          navigate('/login');
+        }
+      }
     };
     fetchData();
-  }, []);
+  }, [navigate]);
 
   const handleLogout = () => { localStorage.clear(); navigate('/login'); };
 
